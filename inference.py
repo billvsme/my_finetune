@@ -20,7 +20,11 @@ def main():
         model_name,
         split_special_tokens=False, trust_remote_code=True)
     tokenizer._pad = MethodType(PreTrainedTokenizerBase._pad, tokenizer)
-    config_kwargs = {}
+
+    config_kwargs = {
+        "low_cpu_mem_usage": True
+    }
+
     if model_args.quantization_bit is not None:
         if model_args.quantization_bit == 8:
             config_kwargs["load_in_8bit"] = True
