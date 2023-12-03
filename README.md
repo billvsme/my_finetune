@@ -70,9 +70,9 @@ echo '''{\
 ```
 ~/.venv/finetune/bin/deepspeed --num_gpus 1 --master_port=9901 finetune.py \
     --deepspeed ds_config.json \
-    --model_name_or_path /content/chatglm3-6b-base \
+    --model_name_or_path ../chatglm3-6b-base \
     --do_train True\
-    --data_dir /content/my_finetune/data/ \
+    --data_dir ./data/ \
     --data_filename self_cognition.json  \
     --max_source_length 2048 \
     --max_target_length 2048 \
@@ -103,9 +103,9 @@ echo '''{\
 """查看微调结果😁
 """
 ~/.venv/finetune/bin/python inference.py \
-    --model_name_or_path /content/chatglm3-6b-base \
+    --model_name_or_path ../chatglm3-6b-base \
     --lora_path output/chatglmt3_qlora \
-    --data_dir /content/my_finetune/data/ \
+    --data_dir ./data/ \
     --data_filename self_cognition.json\
     --max_samples 80 \
     --quantization_bit 4
