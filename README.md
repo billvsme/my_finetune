@@ -10,7 +10,7 @@ my_finetune
 ### 本地运行
 #### 1. 下载代码
 ```
-!git clone https://github.com/billvsme/my_finetune
+git clone https://github.com/billvsme/my_finetune
 ```
 
 
