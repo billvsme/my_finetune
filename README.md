@@ -2,10 +2,16 @@ my_finetune
 ============
 
 ### Colab
-使用免费的T4，只需几分钟即可完成chagtlm3-base 自我认知 qlora sft微调 🥳    
+使用免费的T4，只需5分钟即可完成chagtlm3-base 自我认知 qlora sft微调 🥳    
   
 [![OpenAll Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/billvsme/my_finetune/blob/master/colab/my_finetune.ipynb)  
 *注意：免费 Colab 进行inference时，可能会因为cpu内存不够直接终止，请选择 **高RAM** 配置
+
+
+### 最低配置
+
+<a href="https://sm.ms/image/qGcS8eCz1f7XhWv" target="_blank"><img src="https://s2.loli.net/2023/12/03/qGcS8eCz1f7XhWv.png" width="40%"></a>
+
 
 ### 本地运行
 #### 1. 下载代码
@@ -96,7 +102,7 @@ echo '''{\
 ```
 """查看微调结果😁
 """
-!~/.venv/finetune/bin/python inference.py \
+~/.venv/finetune/bin/python inference.py \
     --model_name_or_path /content/chatglm3-6b-base \
     --lora_path output/chatglmt3_qlora \
     --data_dir /content/my_finetune/data/ \
