@@ -1,0 +1,6 @@
+transformers[deepspeed]==4.33.1
+datasets==2.14.7
+peft==0.6.2
+bitsandbytes==0.41.2.post2
+scipy==1.11.4
+sentencepiece==0.1.99
