@@ -196,12 +196,6 @@ def main():
     model = init_lora(model, tokenizer, fintuning_args)
     model = model.train()
 
-    # somthing for qlora
-    if getattr(model, "is_loaded_in_8bit", False) or getattr(model, "is_loaded_in_4bit", False):
-        pass
-    else:
-        model = model.cuda()
-
     # 3. load dataset
     train_dataset = get_dataset(tokenizer, data_args)
 
