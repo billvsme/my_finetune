@@ -5,7 +5,7 @@ my_finetune
 使用免费的T4，只需5分钟即可完成chagtlm3-base 自我认知 qlora sft微调 🥳    
   
 [![OpenAll Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/billvsme/my_finetune/blob/master/colab/my_finetune.ipynb)  
-*注意：免费 Colab 进行inference时，可能会因为cpu内存不够直接终止，请选择 **高RAM** 配置
+<small> **注意**：免费 Colab 进行inference时，可能会因为cpu内存不够直接终止，请选择 **高RAM** 配置 </small>
 
 
 ### 最低配置
