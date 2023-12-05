@@ -209,7 +209,7 @@ def main():
     trainer = init_train(model, tokenizer, train_dataset, training_args)
 
     # 5. train
-    trainer.train()
+    trainer.train(resume_from_checkpoint=training_args.resume_from_checkpoint)
     trainer.save_model()
     trainer.save_state()
 
