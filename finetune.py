@@ -5,7 +5,7 @@ import os
 from types import MethodType
 from datasets import load_dataset
 from peft import get_peft_model, LoraConfig, TaskType
-from transformers import AutoTokenizer, AutoModel, AutoConfig,\
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig,\
         DataCollatorForSeq2Seq, BitsAndBytesConfig, PreTrainedTokenizerBase,\
         HfArgumentParser, Seq2SeqTrainingArguments, set_seed
 
@@ -101,15 +101,12 @@ def init_train(model, tokenizer, train_dataset, training_args):
 
 
 def prepare_train_model(model):
-    model.lm_head = model.transformer.output_layer
-    model._keys_to_ignore_on_save = ["lm_head.weight"]
-
     model.enable_input_require_grads()
     model.gradient_checkpointing_enable()
     model.config.use_cache = False
 
-    output_layer = getattr(model, "lm_head")
-    if isinstance(output_layer, torch.nn.Linear):
+    output_layer = getattr(model, "lm_head", None)
+    if output_layer and isinstance(output_layer, torch.nn.Linear):
         def fp32_forward_pre_hook(module, args):
             return args[0].to(output_layer.weight.dtype)
 
@@ -122,14 +119,14 @@ def prepare_train_model(model):
     return model
 
 
-def init_lora(model, tokenizer, fintuning_args):
+def init_lora(model, tokenizer, finetuning_args):
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         inference_mode=False,
-        r=fintuning_args.lora_rank,
-        target_modules=['query_key_value'],
-        lora_alpha=fintuning_args.lora_alpha,
-        lora_dropout=fintuning_args.lora_dropout,
+        r=finetuning_args.lora_rank,
+        lora_alpha=finetuning_args.lora_alpha,
+        lora_dropout=finetuning_args.lora_dropout,
+        target_modules=finetuning_args.lora_target.split(","),
         modules_to_save=None
     )
 
@@ -141,7 +138,7 @@ def main():
     # 1. parser input args
     parser = HfArgumentParser((
         ModelArguments, DataTrainingArguments, FinetuningArguments, Seq2SeqTrainingArguments))
-    model_args, data_args, fintuning_args, training_args = parser.parse_args_into_dataclasses()
+    model_args, data_args, finetuning_args, training_args = parser.parse_args_into_dataclasses()
 
     # show log
     if training_args.should_log:
@@ -162,7 +159,9 @@ def main():
             split_special_tokens=False,
             padding_side="right",
             trust_remote_code=True)
-    tokenizer._pad = MethodType(PreTrainedTokenizerBase._pad, tokenizer)
+
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token_id = tokenizer.eos_token_id
 
     # something for qlora
     config_kwargs = {}
@@ -186,14 +185,28 @@ def main():
         config_kwargs["device_map"] = {"": int(os.environ.get('LOCAL_RANK', '0'))}
 
     config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-    model = AutoModel.from_pretrained(
-        model_name, trust_remote_code=True, empty_init=False,
+    if config.eos_token_id is None:
+        config.eos_token_id = tokenizer.eos_token_id
+    if config.pad_token_id is None:
+        config.pad_token_id = tokenizer.pad_token_id
+
+    if getattr(config, "model_type", None) == "chatglm":
+        config_kwargs["empty_init"] = False
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, trust_remote_code=True,
         config=config,
         torch_dtype=torch.float16,
         low_cpu_mem_usage=(not is_deepspeed_zero3_enabled()), **config_kwargs)
 
+    # somthing for chatglm
+    if getattr(config, "model_type", None) == "chatglm":
+        tokenizer._pad = MethodType(PreTrainedTokenizerBase._pad, tokenizer)
+        model.lm_head = model.transformer.output_layer
+        model._keys_to_ignore_on_save = ["lm_head.weight"]
+
     model = prepare_train_model(model)
-    model = init_lora(model, tokenizer, fintuning_args)
+    model = init_lora(model, tokenizer, finetuning_args)
     model = model.train()
 
     # 3. load dataset
@@ -203,7 +216,9 @@ def main():
     if training_args.should_log:
         example = next(iter(train_dataset))
         for key in example:
-            print(f"{key}:{tokenizer.decode(example[key], skip_special_tokens=False)}")
+            result = tokenizer.decode(
+                list(filter(lambda x: x != -100, example[key])), skip_special_tokens=False)
+            print(f"{key}:{result}")
 
     # 4. initialize the train
     trainer = init_train(model, tokenizer, train_dataset, training_args)

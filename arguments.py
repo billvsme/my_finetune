@@ -98,9 +98,21 @@ class FinetuningArguments:
         },
     )
 
+    lora_target: Optional[str] = field(
+        default="query_key_value",
+        metadata={"help": "Name(s) of target modules to apply LoRA"}
+    )
+
 
 @dataclass
 class InferenceArguments:
     lora_path: str = field(
         metadata={"help": "Path to lora"}
+    )
+
+    max_length: Optional[int] = field(
+        default=1024,
+        metadata={
+            "help": "max_length for generate"
+        },
     )

@@ -2,7 +2,7 @@
 from types import MethodType
 
 import torch
-from transformers import AutoModel, AutoTokenizer,\
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig,\
         HfArgumentParser, PreTrainedTokenizerBase, BitsAndBytesConfig
 from datasets import load_dataset
 
@@ -19,7 +19,9 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
         split_special_tokens=False, trust_remote_code=True)
-    tokenizer._pad = MethodType(PreTrainedTokenizerBase._pad, tokenizer)
+
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token_id = tokenizer.eos_token_id
 
     config_kwargs = {
         "low_cpu_mem_usage": True
@@ -39,8 +41,18 @@ def main():
                 bnb_4bit_quant_type="nf4"
             )
 
-    model = AutoModel.from_pretrained(
-        inference_args.lora_path, trust_remote_code=True, device_map="auto", **config_kwargs)
+    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+    if config.eos_token_id is None:
+        config.eos_token_id = tokenizer.eos_token_id
+    if config.pad_token_id is None:
+        config.pad_token_id = tokenizer.pad_token_id
+
+    model = AutoModelForCausalLM.from_pretrained(
+        inference_args.lora_path, trust_remote_code=True, device_map="auto",
+        config=config, **config_kwargs)
+
+    if getattr(config, "model_type", None) == "chatglm":
+        tokenizer._pad = MethodType(PreTrainedTokenizerBase._pad, tokenizer)
 
     dataset = load_dataset(
         path=data_args.data_dir,
@@ -55,7 +67,7 @@ def main():
 
         response = model.generate(
             input_ids=inputs["input_ids"],
-            max_length=inputs["input_ids"].shape[-1] + 1024)
+            max_length=inputs["input_ids"].shape[-1] + inference_args.max_length)
         response = response[0, inputs["input_ids"].shape[-1]:]
         print("="*100)
         print("question:", index)
