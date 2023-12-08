@@ -1,5 +1,6 @@
 # coding: utf-8
 from types import MethodType
+from itertools import islice
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig,\
@@ -10,6 +11,15 @@ from finetune import format_message
 from arguments import ModelArguments, DataTrainingArguments, InferenceArguments
 
 
+def _batch(size, iterable):
+    it = iter(iterable)
+    while True:
+        chunk = list(islice(it, size))
+        if not chunk:
+            return
+        yield chunk
+
+
 def main():
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, InferenceArguments))
     model_args, data_args, inference_args = parser.parse_args_into_dataclasses()
@@ -18,6 +28,7 @@ def main():
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
+        padding_side="left",
         split_special_tokens=False, trust_remote_code=True)
 
     if tokenizer.pad_token_id is None:
@@ -61,19 +72,31 @@ def main():
         split='train'
     )
 
-    for index, example in enumerate(dataset):
-        prompt = format_message(example.get("instruction", ''), example.get("input"))
-        inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+    if data_args.max_samples is not None:
+        dataset = dataset.select(range(min(len(dataset), data_args.max_samples)))
 
-        response = model.generate(
+    index = 0
+    for example_bath in _batch(inference_args.batch_size, dataset):
+        prompts = []
+        outputs = []
+        for example in example_bath:
+            prompts.append(format_message(example.get("instruction", ''), example.get("input")))
+            outputs.append(example.get("output"))
+
+        inputs = tokenizer(prompts, return_tensors="pt", padding=True).to("cuda")
+        responses = model.generate(
             input_ids=inputs["input_ids"],
             max_length=inputs["input_ids"].shape[-1] + inference_args.max_length)
-        response = response[0, inputs["input_ids"].shape[-1]:]
-        print("="*100)
-        print("question:", index)
-        print(prompt)
-        print("Origin  -->", example["output"])
-        print("Predict -->", tokenizer.decode(response, skip_special_tokens=True))
+
+        responses = responses[:, inputs["input_ids"].shape[-1]:]
+
+        for i, response in enumerate(responses):
+            print("="*100)
+            print("question:", index)
+            print(prompts[i])
+            print("Origin  -->", outputs[i])
+            print("Predict -->", tokenizer.decode(response, skip_special_tokens=True))
+            index += 1
 
 
 if __name__ == '__main__':

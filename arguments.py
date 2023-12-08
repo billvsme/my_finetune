@@ -110,6 +110,11 @@ class InferenceArguments:
         metadata={"help": "Path to lora"}
     )
 
+    batch_size: Optional[int] = field(
+        default=1,
+        metadata={"help": "batch_szie for generate"}
+    )
+
     max_length: Optional[int] = field(
         default=1024,
         metadata={
