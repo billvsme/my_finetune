@@ -101,9 +101,10 @@ def init_train(model, tokenizer, train_dataset, training_args):
 
 
 def prepare_train_model(model):
-    model.enable_input_require_grads()
-    model.gradient_checkpointing_enable()
-    model.config.use_cache = False
+    if getattr(model, "supports_gradient_checkpointing", False):
+        model.enable_input_require_grads()
+        model.gradient_checkpointing_enable()
+        model.config.use_cache = False
 
     output_layer = getattr(model, "lm_head", None)
     if output_layer and isinstance(output_layer, torch.nn.Linear):
@@ -216,6 +217,8 @@ def main():
     if training_args.should_log:
         example = next(iter(train_dataset))
         for key in example:
+            if key not in ["input_ids", "labels"]:
+                continue
             result = tokenizer.decode(
                 list(filter(lambda x: x != -100, example[key])), skip_special_tokens=False)
             print(f"{key}:{result}")
